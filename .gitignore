@@ -1,0 +1,20 @@
+# Env & secrets
+.env
+.env.*
+# Node/Next
+node_modules
+.next
+# Python
+__pycache__/
+# Docker crap
+*.log
+# OS junk
+.DS_Store
+Thumbs.db
+venv/
+.venv/
+*.py[oc]
+build/  
+dist/   
+wheels/
+*.egg-info
