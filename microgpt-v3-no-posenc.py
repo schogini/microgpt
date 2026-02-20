@@ -97,10 +97,10 @@ class Value:
                 child.grad += local_grad * v.grad
 
 # Initialize the parameters, to store the knowledge of the model.
-n_embd = 16     # embedding dimension
-n_head = 4      # number of attention heads
-n_layer = 1     # number of layers
-block_size = 16 # maximum sequence length
+n_embd = 16      #Sree 16 embedding dimension
+n_head = 4    #Sree 4  # number of attention heads
+n_layer = 1     #Sree 1 number of layers
+block_size = 16 #Sree 16 maximum sequence length
 head_dim = n_embd // n_head # dimension of each head
 matrix = lambda nout, nin, std=0.08: [[Value(random.gauss(0, std)) for _ in range(nin)] for _ in range(nout)]
 state_dict = {'wte': matrix(vocab_size, n_embd), 'wpe': matrix(block_size, n_embd), 'lm_head': matrix(vocab_size, n_embd)}
@@ -126,14 +126,18 @@ def softmax(logits):
     return [e / total for e in exps]
 
 def rmsnorm(x):
+    # return x # Sree
     ms = sum(xi * xi for xi in x) / len(x)
     scale = (ms + 1e-5) ** -0.5
     return [xi * scale for xi in x]
 
 def gpt(token_id, pos_id, keys, values):
     tok_emb = state_dict['wte'][token_id] # token embedding
-    pos_emb = state_dict['wpe'][pos_id] # position embedding
-    x = [t + p for t, p in zip(tok_emb, pos_emb)] # joint token and position embedding
+    # pos_emb = state_dict['wpe'][pos_id] # position embedding
+    # x = [t + p for t, p in zip(tok_emb, pos_emb)] # joint token and position embedding
+
+    x = tok_emb[:]
+
     x = rmsnorm(x)
 
     for li in range(n_layer):
