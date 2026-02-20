@@ -271,11 +271,18 @@ def softmax(logits):
     max_val = max(val.data for val in logits)
     exps = [(val - max_val).exp() for val in logits]
     total = sum(exps)
+
+
     return [e / total for e in exps]
 
 def rmsnorm(x):
     ms = sum(xi * xi for xi in x) / len(x)
     scale = (ms + 1e-5) ** -0.5
+    if DEBUG:
+        print("\n--- RMSNORM DEBUG ---")
+        print("Mean square:", round(ms.data, 6))
+        print("Scale factor:", round(scale.data, 6))
+
     return [xi * scale for xi in x]
 
 # ============================================================
@@ -294,8 +301,18 @@ def gpt(token_id, pos_id, keys, values):
     x = [t + p for t, p in zip(tok_emb, pos_emb)]
 
     if DEBUG and pos_id == 0:
-        print("\n[Episode 1] Embedding Output:", [round(v.data,4) for v in x[:5]])
-        if EPISODE == 1: sys.exit()
+        print("\n--- EMBEDDING DEBUG ---")
+        print("Token ID:", token_id)
+        print("Token Embedding (first 5 values):",
+              [round(v.data, 4) for v in tok_emb[:5]])
+        print("Position Embedding (first 5 values):",
+              [round(v.data, 4) for v in pos_emb[:5]])
+        print("Combined (first 5 values):",
+              [round(v.data, 4) for v in x[:5]])
+
+    # if DEBUG and pos_id == 0:
+    #     print("\n[Episode 1] Embedding Output:", [round(v.data,4) for v in x[:5]])
+    #     if EPISODE == 1: sys.exit()
 
     x = rmsnorm(x)
 
@@ -316,8 +333,13 @@ def gpt(token_id, pos_id, keys, values):
         k = linear(x, state_dict[f'layer{li}.attn_wk'])
         v = linear(x, state_dict[f'layer{li}.attn_wv'])
 
+        # if DEBUG and pos_id == 0:
+        #     print("[Episode 3] Q sample:", [round(val.data,4) for val in q[:5]])
         if DEBUG and pos_id == 0:
-            print("[Episode 3] Q sample:", [round(val.data,4) for val in q[:5]])
+            print("\n--- QKV DEBUG ---")
+            print("Q (first 5):", [round(val.data,4) for val in q[:5]])
+            print("K (first 5):", [round(val.data,4) for val in k[:5]])
+            print("V (first 5):", [round(val.data,4) for val in v[:5]])
             if EPISODE == 3: sys.exit()
 
         keys[li].append(k)
@@ -339,9 +361,14 @@ def gpt(token_id, pos_id, keys, values):
             attn_weights = softmax(attn_logits)
 
             # if DEBUG and pos_id == 0:
-            if DEBUG and pos_id == len(keys[li]) - 1:
-
-                print("[Episode 4] Attention Weights:", [round(w.data,4) for w in attn_weights])
+            # if DEBUG and pos_id == len(keys[li]) - 1:
+            if DEBUG:
+                print("\n--- ATTENTION DEBUG ---")
+                print("Attention logits:",
+                      [round(val.data,4) for val in attn_logits])
+                print("Attention weights:",
+                      [round(val.data,4) for val in attn_weights])
+                # print("[Episode 4] Attention Weights:", [round(w.data,4) for w in attn_weights])
                 if EPISODE == 4: sys.exit()
 
             head_out = [
@@ -354,8 +381,12 @@ def gpt(token_id, pos_id, keys, values):
         x = linear(x_attn, state_dict[f'layer{li}.attn_wo'])
         x = [a + b for a, b in zip(x, x_residual)]
 
-        if DEBUG and pos_id == 0:
-            print("[Episode 5] After Attention Residual:", [round(v.data,4) for v in x[:5]])
+        if DEBUG:
+            print(f"\nHead {h} output (first 3 vals):",
+                  [round(val.data,4) for val in head_out[:3]])
+
+        # if DEBUG and pos_id == 0:
+            # print("[Episode 5] After Attention Residual:", [round(v.data,4) for v in x[:5]])
             if EPISODE == 5: sys.exit()
 
         # ---------------------------
@@ -369,15 +400,28 @@ def gpt(token_id, pos_id, keys, values):
         x = linear(x, state_dict[f'layer{li}.mlp_fc2'])
         x = [a + b for a, b in zip(x, x_residual)]
 
-        if DEBUG and pos_id == 0:
-            print("[Episode 6] After MLP:", [round(v.data,4) for v in x[:5]])
+        if DEBUG:
+            print("\n--- RESIDUAL DEBUG ---")
+            print("Before residual (first 3):",
+                  [round(a.data,4) for a in x_residual[:3]])
+            print("After residual (first 3):",
+                  [round(a.data,4) for a in x[:3]])
+
+        # if DEBUG and pos_id == 0:
+        #     print("[Episode 6] After MLP:", [round(v.data,4) for v in x[:5]])
             if EPISODE == 6: sys.exit()
 
     logits = linear(x, state_dict['lm_head'])
 
-    if DEBUG and pos_id == 0:
-        print("[Episode 7] Logits sample:", [round(v.data,4) for v in logits[:5]])
-        if EPISODE == 7: sys.exit()
+    # if DEBUG:
+    #     print("\n--- LOGITS DEBUG ---")
+    #     print("Raw logits (first 5):",
+    #           [round(val.data,4) for val in logits[:5]])
+    #     if EPISODE == 8: sys.exit()
+
+    # if DEBUG and pos_id == 0:
+    #     print("[Episode 7] Logits sample:", [round(v.data,4) for v in logits[:5]])
+    #     if EPISODE == 7: sys.exit()
 
     return logits
 
@@ -407,6 +451,12 @@ def train_model():
             token_id, target_id = tokens[pos_id], tokens[pos_id + 1]
             logits = gpt(token_id, pos_id, keys, values)
             probs = softmax(logits)
+            if DEBUG and pos_id == 0:
+                print("\n--- SOFTMAX DEBUG (Training) ---")
+                print("Probabilities (first 5):",
+                      [round(p.data, 4) for p in probs[:5]])
+                if EPISODE == 8:
+                    sys.exit()
             loss_t = -probs[target_id].log()
             losses.append(loss_t)
 
@@ -439,7 +489,7 @@ def is_word_present(word, filename="input.txt"):
     return "yes" if word.lower().strip() in words else "new"
 
 
-def run_inference(temperature, n_samples=20):
+def run_inference(temperature, n_samples=5):
     # print(f"\n--- inference (temperature={temperature}) ---")
 
     # for sample_idx in range(n_samples):
