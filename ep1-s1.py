@@ -7,8 +7,17 @@ if not os.path.exists('input.txt'):
     urllib.request.urlretrieve(names_url, 'input.txt')
 
 docs = [l.strip() for l in open('input.txt').read().strip().split('\n') if l.strip()]
+
+# print(docs)
+
+
 random.shuffle(docs)
 print(f"num docs: {len(docs)}")
+
+# print(''.join(docs))
+print(sorted(set(''.join(docs))))
+
+# exit()
 
 uchars = sorted(set(''.join(docs)))
 
